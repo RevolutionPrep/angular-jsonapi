@@ -13,18 +13,22 @@
       create: SourceErrorFactory
     };
 
-    function SourceErrorFactory(message, source, code, action) {
-      return new SourceError(message, source, code, action);
+    function SourceErrorFactory(message, source, code, action, response) {
+      return new SourceError(message, source, code, action, response);
     }
 
-    function SourceError(message, source, code, action) {
+    function SourceError(message, source, code, action, response) {
       var _this = this;
-
+      var errors = [];
+      if (response && response.data && response.data.errors) {
+        errors = response.data.errors;
+      }
       _this.message = message;
       _this.context = {
         source: source,
         code: code,
-        action: action
+        action: action,
+        errors: errors
       };
     }
   }

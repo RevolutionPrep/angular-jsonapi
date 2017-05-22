@@ -23,9 +23,9 @@
       var _this = this;
       _this.name = name;
       _this.description = description;
-
       _this.ErrorConstructor = ErrorConstructor;
       _this.errors = {};
+      _this.serverErrors = [];
       _this.defaultFilter = defaultFilter || function() { return true; };
     }
 
@@ -52,11 +52,11 @@
       var _this = this;
 
       angular.forEach(errors, function(error) {
-        _this.errors[error.key] = [];
-      });
-
-      angular.forEach(errors, function(error) {
+        _this.errors[error.key] = _this.errors[error.key] || [];
         _this.errors[error.key].push(error.object);
+        if (error.object.context && error.object.context.errors) {
+          _this.serverErrors = error.object.context.errors;
+        }
       });
 
     }
