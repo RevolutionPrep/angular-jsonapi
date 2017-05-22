@@ -621,6 +621,43 @@
     // PRIVATE //
     /////////////
 
+    function _buildModel(record) {
+      var model;
+      if (record.model) {
+        model = record.model;
+      } else {
+        model = {};
+      }
+      if (record.data) {
+        model.id = record.data.id
+        model.type = record.data.type;
+        if (record.data.attributes) {
+          angular.extend(model, record.data.attributes);
+        }
+        if (record.relationships) {
+          for (var name in record.relationships) {
+            var relationship = record.relationships[name];
+            if (relationship instanceof Array) {
+              relationship.forEach(function(relation) {
+                if (!model[name]) { model[name] = []; }
+                var index = model[name].findIndex(function(item) { return item.id == relation.data.id; });
+                if (index === -1) {
+                  model[name].push(relation.model);
+                } else {
+                  angular.extend(model[name][index], relation.model);
+                }
+              });
+            } else {
+              if (relationship && relationship.model) {
+                model[name] = relationship.model;
+              }
+            }
+          }
+        }
+      }
+      return model;
+    }
+
     /**
      * Low level set data function, use only with validated data
      * @param  {AngularJsonAPIModel} object        object to be modified
@@ -651,6 +688,8 @@
 
       angular.forEach(schema.attributes, setAttributes);
       angular.forEach(schema.relationships, setRelationships);
+      if (!object.model) { object.model = {}; }
+      angular.extend(object.model, _buildModel(object));
 
       return true;
 
