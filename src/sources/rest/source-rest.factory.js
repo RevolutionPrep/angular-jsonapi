@@ -162,13 +162,13 @@
             url: 'https://status.cloud.google.com/incidents.schema.json'
           }).then(rejectServerOffline, rejectNoConnection);
         } else {
-          deferred.reject(AngularJsonAPIModelSourceError.create(response.statusText, _this, response.status, action));
+          deferred.reject(AngularJsonAPIModelSourceError.create(response.statusText, _this, response.status, action, response));
         }
 
         return deferred.promise;
 
         function rejectServerOffline(response) {
-          deferred.reject(AngularJsonAPIModelSourceError.create('Server is offline', _this, response.status, action));
+          deferred.reject(AngularJsonAPIModelSourceError.create('Server is offline', _this, response.status, action, response));
         }
 
         function rejectNoConnection() {
