@@ -8,6 +8,7 @@
 (function() {
   'use strict';
 
+  AngularJsonAPISourceRestWrapper.$inject = ["AngularJsonAPIModelSourceError", "AngularJsonAPISourcePrototype", "AngularJsonAPIModelLinkerService", "toKebabCase", "$q", "$http"];
   angular.module('angular-jsonapi-rest')
   .factory('AngularJsonAPISourceRest', AngularJsonAPISourceRestWrapper);
 
@@ -169,13 +170,13 @@
             url: 'https://status.cloud.google.com/incidents.schema.json'
           }).then(rejectServerOffline, rejectNoConnection);
         } else {
-          deferred.reject(AngularJsonAPIModelSourceError.create(response.statusText, _this, response.status, action));
+          deferred.reject(AngularJsonAPIModelSourceError.create(response.statusText, _this, response.status, action, response));
         }
 
         return deferred.promise;
 
         function rejectServerOffline(response) {
-          deferred.reject(AngularJsonAPIModelSourceError.create('Server is offline', _this, response.status, action));
+          deferred.reject(AngularJsonAPIModelSourceError.create('Server is offline', _this, response.status, action, response));
         }
 
         function rejectNoConnection() {
@@ -235,19 +236,19 @@
       return decodedParams;
     }
   }
-  AngularJsonAPISourceRestWrapper.$inject = ["AngularJsonAPIModelSourceError", "AngularJsonAPISourcePrototype", "AngularJsonAPIModelLinkerService", "toKebabCase", "$q", "$http"];
 })();
 
 (function() {
   'use strict';
 
+  provide.$inject = ["$provide"];
+  decorator.$inject = ["$delegate", "AngularJsonAPISourceRest"];
   angular.module('angular-jsonapi-rest')
   .config(provide);
 
   function provide($provide) {
     $provide.decorator('$jsonapi', decorator);
   }
-  provide.$inject = ["$provide"];
 
   function decorator($delegate, AngularJsonAPISourceRest) {
     var $jsonapi = $delegate;
@@ -256,7 +257,6 @@
 
     return $jsonapi;
   }
-  decorator.$inject = ["$delegate", "AngularJsonAPISourceRest"];
 })();
 
 (function() {
@@ -270,6 +270,7 @@
 (function() {
   'use strict';
 
+  AngularJsonAPISourceParseWrapper.$inject = ["AngularJsonAPIModelSourceError", "AngularJsonAPISourcePrototype", "AngularJsonAPIModelLinkerService", "pluralize", "Parse", "$log", "$q"];
   angular.module('angular-jsonapi-parse')
   .factory('AngularJsonAPISourceParse', AngularJsonAPISourceParseWrapper);
 
@@ -403,19 +404,19 @@
       Parse.initialize(appId, jsKey);
     }
   }
-  AngularJsonAPISourceParseWrapper.$inject = ["AngularJsonAPIModelSourceError", "AngularJsonAPISourcePrototype", "AngularJsonAPIModelLinkerService", "pluralize", "Parse", "$log", "$q"];
 })();
 
 (function() {
   'use strict';
 
+  provide.$inject = ["$provide"];
+  decorator.$inject = ["$delegate", "AngularJsonAPISourceParse"];
   angular.module('angular-jsonapi-parse')
   .config(provide);
 
   function provide($provide) {
     $provide.decorator('$jsonapi', decorator);
   }
-  provide.$inject = ["$provide"];
 
   function decorator($delegate, AngularJsonAPISourceParse) {
     var $jsonapi = $delegate;
@@ -424,7 +425,6 @@
 
     return $jsonapi;
   }
-  decorator.$inject = ["$delegate", "AngularJsonAPISourceParse"];
 })();
 
 (function() {
@@ -437,6 +437,7 @@
 (function() {
   'use strict';
 
+  AngularJsonAPISourceLocalWrapper.$inject = ["AngularJsonAPISourcePrototype", "$window", "$q"];
   angular.module('angular-jsonapi-local')
   .factory('AngularJsonAPISourceLocal', AngularJsonAPISourceLocalWrapper);
 
@@ -530,19 +531,19 @@
       }
     }
   }
-  AngularJsonAPISourceLocalWrapper.$inject = ["AngularJsonAPISourcePrototype", "$window", "$q"];
 })();
 
 (function() {
   'use strict';
 
+  provide.$inject = ["$provide"];
+  decorator.$inject = ["$delegate", "AngularJsonAPISourceLocal"];
   angular.module('angular-jsonapi-local')
   .config(provide);
 
   function provide($provide) {
     $provide.decorator('$jsonapi', decorator);
   }
-  provide.$inject = ["$provide"];
 
   function decorator($delegate, AngularJsonAPISourceLocal) {
     var $jsonapi = $delegate;
@@ -551,7 +552,6 @@
 
     return $jsonapi;
   }
-  decorator.$inject = ["$delegate", "AngularJsonAPISourceLocal"];
 })();
 
 (function() {
@@ -566,6 +566,7 @@
 (function() {
   'use strict';
 
+  AngularJsonAPIResourceCacheWrapper.$inject = ["uuid4", "$log"];
   angular.module('angular-jsonapi')
   .factory('AngularJsonAPIResourceCache', AngularJsonAPIResourceCacheWrapper);
 
@@ -814,12 +815,12 @@
       delete _this.removed[id];
     }
   }
-  AngularJsonAPIResourceCacheWrapper.$inject = ["uuid4", "$log"];
 })();
 
 (function() {
   'use strict';
 
+  AngularJsonAPIModelLinkerService.$inject = ["$log"];
   angular.module('angular-jsonapi')
   .service('AngularJsonAPIModelLinkerService', AngularJsonAPIModelLinkerService);
 
@@ -1187,12 +1188,12 @@
       return array;
     }
   }
-  AngularJsonAPIModelLinkerService.$inject = ["$log"];
 })();
 
 (function() {
   'use strict';
 
+  AngularJsonAPIModelFormWrapper.$inject = ["AngularJsonAPIModelValidationError", "AngularJsonAPIModelLinkerService", "validateJS", "$q"];
   angular.module('angular-jsonapi')
   .factory('AngularJsonAPIModelForm', AngularJsonAPIModelFormWrapper);
 
@@ -1233,6 +1234,7 @@
       _this.relationships = {};
       _this.parent = parent;
       _this.schema = parent.schema;
+      _this.model = {};
       _this.reset();
     }
 
@@ -1244,13 +1246,24 @@
       var _this = this;
       var data = angular.copy(_this.data);
       var relationships = {};
-
+      delete data.attributes;
+      data.attributes = {};
+      angular.forEach(_this.parent.data.attributes, function(value, key) {
+        if (value != _this.model[key]) {
+          data.attributes[key] = _this.model[key];
+        }
+        if (value != _this.data.attributes[key]) {
+          data.attributes[key] = _this.data.attributes[key];
+        }
+      });
       angular.forEach(data.relationships, function(value, key) {
         if (value.data !== undefined) {
           relationships[key] = value;
+          if (_this.model[key] && relationships[key].data.id !== _this.model[key].id) {
+            relationships[key].data.id = _this.model[key].id;
+          }
         }
       });
-
       data.relationships = relationships;
 
       return {
@@ -1274,13 +1287,23 @@
      */
     function reset(auto) {
       var _this = this;
-
       angular.forEach(_this.schema.relationships, function(data, key) {
         _this.data.relationships[key] = angular.copy(_this.parent.data.relationships[key]) || {};
         if (angular.isArray(_this.relationships[key])) {
           _this.relationships[key] = _this.parent.relationships[key].slice();
+          angular.forEach(_this.relationships[key], function(data, key) {
+            if (!_this.model[key]) { _this.model[key] = []; }
+            var m = {};
+            angular.extend(m, data.model);
+            _this.model[key].push(m);
+          });
         } else {
           _this.relationships[key] = _this.parent.relationships[key];
+          if (_this.relationships[key]) {
+            var m = {};
+            angular.extend(m, _this.relationships[key].model);
+            _this.model[key] = m;
+          }
         }
       });
 
@@ -1291,6 +1314,7 @@
       angular.forEach(_this.schema.attributes, function(validator, key) {
         _this.data.attributes[key] = angular.copy(_this.parent.data.attributes[key]);
       });
+      angular.extend(_this.model, _this.data.attributes);
 
       _this.parent.errors.validation.clear();
     }
@@ -1305,15 +1329,14 @@
       var attributesWrapper;
       var constraintsWrapper;
       var deferred = $q.defer();
-
       if (key === undefined) {
-        attributesWrapper = _this.data.attributes;
+        attributesWrapper = _this.model; // _this.data.attributes;
         constraintsWrapper = _this.schema.attributes;
       } else {
         attributesWrapper = {};
         constraintsWrapper = {};
 
-        attributesWrapper[key] = _this.data.attributes[key];
+        attributesWrapper[key] = _this.model[key]; // _this.data.attributes[key];
         constraintsWrapper[key] = _this.schema.attributes[key];
       }
 
@@ -1378,12 +1401,12 @@
       return $q.resolve(AngularJsonAPIModelLinkerService.unlink(_this.parent, key, target, oneWay, true));
     }
   }
-  AngularJsonAPIModelFormWrapper.$inject = ["AngularJsonAPIModelValidationError", "AngularJsonAPIModelLinkerService", "validateJS", "$q"];
 })();
 
 (function() {
   'use strict';
 
+  AngularJsonAPIAbstractModelWrapper.$inject = ["AngularJsonAPIModelSourceError", "AngularJsonAPIModelValidationError", "AngularJsonAPIModelErrorsManager", "AngularJsonAPIModelLinkerService", "AngularJsonAPIModelForm", "$rootScope", "$injector", "$log", "$q"];
   angular.module('angular-jsonapi')
   .factory('AngularJsonAPIAbstractModel', AngularJsonAPIAbstractModelWrapper);
 
@@ -2004,6 +2027,43 @@
     // PRIVATE //
     /////////////
 
+    function _buildModel(record) {
+      var model;
+      if (record.model) {
+        model = record.model;
+      } else {
+        model = {};
+      }
+      if (record.data) {
+        model.id = record.data.id
+        model.type = record.data.type;
+        if (record.data.attributes) {
+          angular.extend(model, record.data.attributes);
+        }
+        if (record.relationships) {
+          for (var name in record.relationships) {
+            var relationship = record.relationships[name];
+            if (relationship instanceof Array) {
+              relationship.forEach(function(relation) {
+                if (!model[name]) { model[name] = []; }
+                var index = model[name].findIndex(function(item) { return item.id == relation.data.id; });
+                if (index === -1) {
+                  model[name].push(relation.model);
+                } else {
+                  angular.extend(model[name][index], relation.model);
+                }
+              });
+            } else {
+              if (relationship && relationship.model) {
+                model[name] = relationship.model;
+              }
+            }
+          }
+        }
+      }
+      return model;
+    }
+
     /**
      * Low level set data function, use only with validated data
      * @param  {AngularJsonAPIModel} object        object to be modified
@@ -2034,6 +2094,8 @@
 
       angular.forEach(schema.attributes, setAttributes);
       angular.forEach(schema.relationships, setRelationships);
+      if (!object.model) { object.model = {}; }
+      angular.extend(object.model, _buildModel(object));
 
       return true;
 
@@ -2109,7 +2171,6 @@
       }
     }
   }
-  AngularJsonAPIAbstractModelWrapper.$inject = ["AngularJsonAPIModelSourceError", "AngularJsonAPIModelValidationError", "AngularJsonAPIModelErrorsManager", "AngularJsonAPIModelLinkerService", "AngularJsonAPIModelForm", "$rootScope", "$injector", "$log", "$q"];
 
   /////////////
   // Private //
@@ -2185,18 +2246,22 @@
       create: SourceErrorFactory
     };
 
-    function SourceErrorFactory(message, source, code, action) {
-      return new SourceError(message, source, code, action);
+    function SourceErrorFactory(message, source, code, action, response) {
+      return new SourceError(message, source, code, action, response);
     }
 
-    function SourceError(message, source, code, action) {
+    function SourceError(message, source, code, action, response) {
       var _this = this;
-
+      var errors = [];
+      if (response && response.data && response.data.errors) {
+        errors = response.data.errors;
+      }
       _this.message = message;
       _this.context = {
         source: source,
         code: code,
-        action: action
+        action: action,
+        errors: errors
       };
     }
   }
@@ -2227,9 +2292,9 @@
       var _this = this;
       _this.name = name;
       _this.description = description;
-
       _this.ErrorConstructor = ErrorConstructor;
       _this.errors = {};
+      _this.serverErrors = [];
       _this.defaultFilter = defaultFilter || function() { return true; };
     }
 
@@ -2256,11 +2321,11 @@
       var _this = this;
 
       angular.forEach(errors, function(error) {
-        _this.errors[error.key] = [];
-      });
-
-      angular.forEach(errors, function(error) {
+        _this.errors[error.key] = _this.errors[error.key] || [];
         _this.errors[error.key].push(error.object);
+        if (error.object.context && error.object.context.errors) {
+          _this.serverErrors = error.object.context.errors;
+        }
       });
 
     }
@@ -2336,13 +2401,14 @@
 (function() {
   'use strict';
 
+  provide.$inject = ["$provide"];
+  decorator.$inject = ["$delegate"];
   angular.module('angular-jsonapi')
   .config(provide);
 
   function provide($provide) {
     $provide.decorator('$q', decorator);
   }
-  provide.$inject = ["$provide"];
 
   function decorator($delegate) {
     var $q = $delegate;
@@ -2386,12 +2452,12 @@
 
     return $q;
   }
-  decorator.$inject = ["$delegate"];
 })();
 
 (function() {
   'use strict';
 
+  AngularJsonAPISynchronizerSimpleWrapper.$inject = ["AngularJsonAPISynchronizerPrototype", "$q", "$log"];
   angular.module('angular-jsonapi')
   .factory('AngularJsonAPISynchronizerSimple', AngularJsonAPISynchronizerSimpleWrapper);
 
@@ -2512,12 +2578,12 @@
       return deferred.promise;
     }
   }
-  AngularJsonAPISynchronizerSimpleWrapper.$inject = ["AngularJsonAPISynchronizerPrototype", "$q", "$log"];
 })();
 
 (function() {
   'use strict';
 
+  AngularJsonAPISynchronizerPrototypeWrapper.$inject = ["$log"];
   angular.module('angular-jsonapi')
   .factory('AngularJsonAPISynchronizerPrototype', AngularJsonAPISynchronizerPrototypeWrapper);
 
@@ -2543,7 +2609,6 @@
       }
     }
   }
-  AngularJsonAPISynchronizerPrototypeWrapper.$inject = ["$log"];
 })();
 
 (function() {
@@ -2639,6 +2704,7 @@
 (function() {
   'use strict';
 
+  AngularJsonAPISchemaWrapper.$inject = ["$log", "pluralize", "uuid4", "AngularJsonAPISchemaLink"];
   angular.module('angular-jsonapi')
   .factory('AngularJsonAPISchema', AngularJsonAPISchemaWrapper);
 
@@ -2710,12 +2776,12 @@
     }
 
   }
-  AngularJsonAPISchemaWrapper.$inject = ["$log", "pluralize", "uuid4", "AngularJsonAPISchemaLink"];
 })();
 
 (function() {
   'use strict';
 
+  AngularJsonAPILinkSchrapperLink.$inject = ["$log", "pluralize"];
   angular.module('angular-jsonapi')
   .factory('AngularJsonAPISchemaLink', AngularJsonAPILinkSchrapperLink);
 
@@ -2761,12 +2827,12 @@
     }
 
   }
-  AngularJsonAPILinkSchrapperLink.$inject = ["$log", "pluralize"];
 })();
 
 (function() {
   'use strict';
 
+  AngularJsonAPIResourceWrapper.$inject = ["AngularJsonAPIModel", "AngularJsonAPISchema", "AngularJsonAPIResourceCache", "AngularJsonAPICollection", "$rootScope", "$log", "$q"];
   angular.module('angular-jsonapi')
   .factory('AngularJsonAPIResource', AngularJsonAPIResourceWrapper);
 
@@ -2973,12 +3039,12 @@
       }
     }
   }
-  AngularJsonAPIResourceWrapper.$inject = ["AngularJsonAPIModel", "AngularJsonAPISchema", "AngularJsonAPIResourceCache", "AngularJsonAPICollection", "$rootScope", "$log", "$q"];
 })();
 
 (function() {
   'use strict';
 
+  AngularJsonAPIModel.$inject = ["AngularJsonAPIAbstractModel", "AngularJsonAPISchema", "namedFunction", "pluralize", "$log"];
   angular.module('angular-jsonapi')
   .factory('AngularJsonAPIModel', AngularJsonAPIModel);
 
@@ -3029,12 +3095,12 @@
       }
     }
   }
-  AngularJsonAPIModel.$inject = ["AngularJsonAPIAbstractModel", "AngularJsonAPISchema", "namedFunction", "pluralize", "$log"];
 })();
 
 (function() {
   'use strict';
 
+  AngularJsonAPICollectionWrapper.$inject = ["AngularJsonAPIModelSourceError", "AngularJsonAPIModelErrorsManager", "$rootScope", "$injector", "$q"];
   angular.module('angular-jsonapi')
   .factory('AngularJsonAPICollection', AngularJsonAPICollectionWrapper);
 
@@ -3230,7 +3296,6 @@
       }
     }
   }
-  AngularJsonAPICollectionWrapper.$inject = ["AngularJsonAPIModelSourceError", "AngularJsonAPIModelErrorsManager", "$rootScope", "$injector", "$q"];
 
   function __incrementLoadingCounter(object) {
     object = object === undefined ? this : object;
@@ -3248,10 +3313,12 @@
 (function() {
   'use strict';
 
+  jsonapiProvider.$inject = ["validateJS"];
   angular.module('angular-jsonapi')
   .provider('$jsonapi', jsonapiProvider);
 
   function jsonapiProvider(validateJS) {
+    jsonapiFactory.$inject = ["$log", "AngularJsonAPIResource", "AngularJsonAPISynchronizerSimple"];
     var memory = {};
     var names = [];
     this.$get = jsonapiFactory;
@@ -3343,9 +3410,7 @@
         return objects;
       }
     }
-    jsonapiFactory.$inject = ["$log", "AngularJsonAPIResource", "AngularJsonAPISynchronizerSimple"];
   }
-  jsonapiProvider.$inject = ["validateJS"];
 
 })();
 
